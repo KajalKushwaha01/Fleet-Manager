@@ -1,0 +1,24 @@
+groups:
+  - name: recording.rules
+    interval: 30s
+    rules:
+      - record: instance:node_cpu_usage:rate5m
+        expr: 1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))
+
+      - record: instance:node_memory_usage:ratio
+        expr: 1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
+
+      - record: instance:node_disk_usage:ratio
+        expr: 1 - (
+          node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} /
+          node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"}
+          )
+
+      - record: instance:node_network_receive:rate5m
+        expr: rate(node_network_receive_bytes_total{device!~"lo|veth.*|docker.*|br-.*"}[5m])
+
+      - record: fleet:nodes_up:count
+        expr: count(up{job="linux-nodes"} == 1)
+
+      - record: fleet:nodes_down:count
+        expr: count(up{job="linux-nodes"} == 0)

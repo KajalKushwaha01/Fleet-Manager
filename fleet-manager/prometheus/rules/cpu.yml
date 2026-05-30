@@ -1,0 +1,52 @@
+groups:
+  - name: node.cpu
+    rules:
+      - alert: HighCPUCritical
+        expr: instance:node_cpu_usage:rate5m > 0.95
+        for: 5m
+        labels:
+          severity: critical
+          category: saturation
+        annotations:
+          summary: "CPU usage critical"
+          description: "{{ $labels.instance }} CPU usage is above 95% for 5 minutes."
+
+      - alert: HighCPUWarning
+        expr: instance:node_cpu_usage:rate5m > 0.80
+        for: 10m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "CPU usage high"
+          description: "{{ $labels.instance }} CPU usage is above 80% for 10 minutes."
+
+      - alert: HighIOWait
+        expr: avg by (instance) (rate(node_cpu_seconds_total{job="linux-nodes",mode="iowait"}[5m])) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "High CPU I/O wait"
+          description: "{{ $labels.instance }} CPU iowait is above 20% for 10 minutes."
+
+      - alert: HighCPUSteal
+        expr: avg by (instance) (rate(node_cpu_seconds_total{job="linux-nodes",mode="steal"}[5m])) > 0.10
+        for: 5m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "High CPU steal"
+          description: "{{ $labels.instance }} CPU steal time is above 10% for 5 minutes."
+
+      - alert: LoadAverageHigh
+        expr: node_load1{job="linux-nodes"} / count by (instance) (node_cpu_seconds_total{job="linux-nodes",mode="idle"}) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "Load average high"
+          description: "{{ $labels.instance }} load1 divided by CPU count is above 2."

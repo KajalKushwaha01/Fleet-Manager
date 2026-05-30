@@ -1,0 +1,42 @@
+groups:
+  - name: node.network
+    rules:
+      - alert: NetworkInterfaceDown
+        expr: node_network_up{job="linux-nodes",device!~"lo|veth.*|docker.*|br-.*"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          category: availability
+        annotations:
+          summary: "Network interface down"
+          description: "{{ $labels.instance }} interface {{ $labels.device }} is down."
+
+      - alert: NetworkReceiveSaturation
+        expr: rate(node_network_receive_bytes_total{job="linux-nodes",device!~"lo|veth.*|docker.*|br-.*"}[5m]) > 100 * 1024 * 1024
+        for: 10m
+        labels:
+          severity: warning
+          category: traffic
+        annotations:
+          summary: "High network receive throughput"
+          description: "{{ $labels.instance }} interface {{ $labels.device }} receive rate is above 100 MiB/s."
+
+      - alert: NetworkReceiveErrors
+        expr: rate(node_network_receive_errs_total{job="linux-nodes",device!~"lo|veth.*|docker.*|br-.*"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          category: errors
+        annotations:
+          summary: "Network receive errors"
+          description: "{{ $labels.instance }} interface {{ $labels.device }} has receive errors."
+
+      - alert: NetworkPacketDrops
+        expr: rate(node_network_receive_drop_total{job="linux-nodes",device!~"lo|veth.*|docker.*|br-.*"}[5m]) + rate(node_network_transmit_drop_total{job="linux-nodes",device!~"lo|veth.*|docker.*|br-.*"}[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          category: errors
+        annotations:
+          summary: "Network packet drops"
+          description: "{{ $labels.instance }} interface {{ $labels.device }} is dropping packets."

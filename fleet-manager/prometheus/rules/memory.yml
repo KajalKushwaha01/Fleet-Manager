@@ -1,0 +1,42 @@
+groups:
+  - name: node.memory
+    rules:
+      - alert: MemoryCritical
+        expr: instance:node_memory_usage:ratio{job="linux-nodes"} > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: saturation
+        annotations:
+          summary: "Memory usage critical"
+          description: "{{ $labels.instance }} memory usage is above 95% for 2 minutes."
+
+      - alert: MemoryHigh
+        expr: instance:node_memory_usage:ratio{job="linux-nodes"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "Memory usage high"
+          description: "{{ $labels.instance }} memory usage is above 85% for 10 minutes."
+
+      - alert: SwapUsageHigh
+        expr: (node_memory_SwapTotal_bytes{job="linux-nodes"} > 0) and ((node_memory_SwapTotal_bytes{job="linux-nodes"} - node_memory_SwapFree_bytes{job="linux-nodes"}) / node_memory_SwapTotal_bytes{job="linux-nodes"} > 0.50)
+        for: 5m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "Swap usage high"
+          description: "{{ $labels.instance }} swap usage is above 50% for 5 minutes."
+
+      - alert: OOMKillDetected
+        expr: increase(node_vmstat_oom_kill{job="linux-nodes"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: errors
+        annotations:
+          summary: "OOM kill detected"
+          description: "{{ $labels.instance }} reported one or more OOM kills in the last 5 minutes."

@@ -1,0 +1,42 @@
+groups:
+  - name: fleet.manager
+    rules:
+      - alert: FleetManagerDown
+        expr: up{job="fleet-manager"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Fleet Manager is down"
+          description: "Prometheus cannot scrape the Fleet Manager API."
+
+      - alert: HighRegistrationErrors
+        expr: sum(rate(fleet_registration_errors_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: errors
+        annotations:
+          summary: "High node registration error rate"
+          description: "Fleet Manager registration errors exceed 0.1/s over 5 minutes."
+
+      - alert: ManyNodesUnreachable
+        expr: fleet_nodes_total{status="UNREACHABLE"} > 3
+        for: 5m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Many fleet nodes unreachable"
+          description: "More than 3 nodes are marked UNREACHABLE."
+
+      - alert: APISlowResponses
+        expr: histogram_quantile(0.95, sum by (le) (rate(fleet_http_request_duration_seconds_bucket[5m]))) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: latency
+        annotations:
+          summary: "Fleet Manager API responses are slow"
+          description: "Fleet Manager p95 API latency is above 2 seconds."

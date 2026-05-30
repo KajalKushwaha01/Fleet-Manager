@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fleet Manager Console</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-brand">
+      <p class="eyebrow">// Distributed Linux Fleet</p>
+      <h1>Fleet Manager Console</h1>
+    </div>
+    <div class="topbar-actions">
+      <span id="connection-state" class="status-pill neutral">Locked</span>
+      <button id="refresh-button" title="Refresh status" type="button">↻ Refresh</button>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- ACCESS -->
+    <section class="panel animate d1">
+      <div class="access-panel">
+        <div class="access-info">
+          <h2>Access</h2>
+          <p>Enter the Fleet API key from your <code>.env</code> file<br>to unlock live data.</p>
+        </div>
+        <div>
+          <form id="auth-form" novalidate>
+            <label for="api-key">API Key</label>
+            <div class="access-field-row">
+              <input id="api-key" name="api-key" type="password"
+                     autocomplete="current-password"
+                     placeholder="FLEET_API_SECRET_KEY" required>
+              <button type="submit">Unlock</button>
+            </div>
+          </form>
+          <p id="auth-error" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK NAV BUTTONS -->
+    <nav class="quick-nav animate d2" aria-label="Service links">
+      <a class="link-tile" href="http://localhost:8080" target="_blank" rel="noreferrer">
+        <span class="link-dot live"></span>
+        <span class="link-tile-text">
+          <span>Console</span>
+          <strong>:8080</strong>
+        </span>
+        <span class="link-ext">↗</span>
+      </a>
+      <a class="link-tile" href="http://localhost:9090" target="_blank" rel="noreferrer">
+        <span class="link-dot live"></span>
+        <span class="link-tile-text">
+          <span>Prometheus</span>
+          <strong>:9090</strong>
+        </span>
+        <span class="link-ext">↗</span>
+      </a>
+      <a class="link-tile" href="http://localhost:3000" target="_blank" rel="noreferrer">
+        <span class="link-dot live"></span>
+        <span class="link-tile-text">
+          <span>Grafana</span>
+          <strong>:3000</strong>
+        </span>
+        <span class="link-ext">↗</span>
+      </a>
+      <a class="link-tile" href="http://localhost:9093" target="_blank" rel="noreferrer">
+        <span class="link-dot live"></span>
+        <span class="link-tile-text">
+          <span>Alertmanager</span>
+          <strong>:9093</strong>
+        </span>
+        <span class="link-ext">↗</span>
+      </a>
+    </nav>
+
+    <!-- SUMMARY METRICS -->
+    <section class="summary-grid animate d3" aria-label="Fleet summary">
+      <div class="metric-card ok">
+        <span>Active Nodes</span>
+        <strong id="active-count">0</strong>
+      </div>
+      <div class="metric-card warn">
+        <span>Unreachable</span>
+        <strong id="unreachable-count">0</strong>
+      </div>
+      <div class="metric-card info">
+        <span>Scrape Targets Up</span>
+        <strong id="target-count">0</strong>
+      </div>
+      <div class="metric-card">
+        <span>Last Refresh</span>
+        <strong id="last-refresh" style="font-size:16px">—</strong>
+      </div>
+    </section>
+
+    <!-- SERVICE HEALTH + REGISTER NODE -->
+    <div class="content-grid animate d4">
+
+      <article class="panel">
+        <div class="section-header">
+          <div>
+            <p class="panel-title">Service Health</p>
+            <p class="panel-sub">One-glance status for the local stack.</p>
+          </div>
+        </div>
+        <div id="service-list" class="service-list"></div>
+      </article>
+
+      <article class="panel">
+        <div class="section-header">
+          <div>
+            <p class="panel-title">Register Node</p>
+            <p class="panel-sub">Add a node to the fleet. For local testing use host <code>node1</code> port <code>9100</code>.</p>
+          </div>
+          <button class="register-toggle-btn" type="button" onclick="toggleRegister(this)">+ Open</button>
+        </div>
+
+        <div class="register-form-wrap" id="register-wrap">
+          <form id="register-form" novalidate>
+            <div class="field-row">
+              <label for="hostname">Hostname</label>
+              <input id="hostname" name="hostname" value="node1" required minlength="2">
+            </div>
+            <div class="field-row">
+              <label for="ip">IP or Docker Host</label>
+              <input id="ip" name="ip" value="node1" required>
+            </div>
+            <div class="field-row two-col">
+              <div>
+                <label for="exporter-port">Exporter Port</label>
+                <input id="exporter-port" name="node_exporter_port" type="number"
+                       value="9100" min="1" max="65535" required>
+              </div>
+              <div>
+                <label for="ssh-user">SSH User</label>
+                <input id="ssh-user" name="ssh_user" value="root" required>
+              </div>
+            </div>
+            <div class="field-row">
+              <label for="labels">Labels JSON</label>
+              <textarea id="labels" name="labels" rows="3">{"env":"dev"}</textarea>
+            </div>
+            <label class="checkbox-row">
+              <input id="install-exporter" type="checkbox">
+              <span>Install node_exporter over SSH during registration</span>
+            </label>
+            <button type="submit">Register Node</button>
+            <p id="register-error" aria-live="polite"></p>
+          </form>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- NODES TABLE -->
+    <section class="panel animate d5">
+      <div class="section-header">
+        <div>
+          <p class="panel-title">Nodes</p>
+          <p class="panel-sub">Lifecycle state from Fleet Manager and scrape status from Prometheus.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Hostname</th>
+              <th>Target</th>
+              <th>Status</th>
+              <th>Last Seen</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="nodes-table"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PROMETHEUS TARGETS -->
+    <section class="panel animate d6">
+      <div class="section-header">
+        <div>
+          <p class="panel-title">Prometheus Targets</p>
+          <p class="panel-sub">Active scrape targets discovered by Prometheus.</p>
+        </div>
+      </div>
+      <div id="target-list" class="target-list"></div>
+    </section>
+
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Cursor trail elements -->
+  <div class="cursor-glow" id="cursor-glow"></div>
+  <div class="cursor-trail cursor-ring" id="cursor-ring"></div>
+  <div class="cursor-trail cursor-main" id="cursor-main"></div>
+
+  <script>
+    function toggleRegister(btn) {
+      const wrap = document.getElementById('register-wrap');
+      const isOpen = wrap.classList.toggle('open');
+      btn.textContent = isOpen ? '− Close' : '+ Open';
+    }
+  </script>
+
+  <script>
+    (function() {
+      const main  = document.getElementById('cursor-main');
+      const ring  = document.getElementById('cursor-ring');
+      const glow  = document.getElementById('cursor-glow');
+
+      // Trail dots pool
+      const TRAIL_COUNT = 14;
+      const trail = [];
+      for (let i = 0; i < TRAIL_COUNT; i++) {
+        const d = document.createElement('div');
+        d.className = 'trail-dot';
+        const scale = 1 - i / TRAIL_COUNT;
+        d.style.opacity = (scale * 0.7).toFixed(2);
+        d.style.width = d.style.height = Math.max(2, Math.round(5 * scale)) + 'px';
+        document.body.appendChild(d);
+        trail.push({ el: d, x: 0, y: 0 });
+      }
+
+      let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+      let positions = Array(TRAIL_COUNT).fill(null).map(() => ({ x: mx, y: my }));
+      let raf;
+
+      document.addEventListener('mousemove', e => {
+        mx = e.clientX;
+        my = e.clientY;
+
+        main.style.left = mx + 'px';
+        main.style.top  = my + 'px';
+        glow.style.left = mx + 'px';
+        glow.style.top  = my + 'px';
+      });
+
+      // Hover effects on interactive elements
+      document.addEventListener('mouseover', e => {
+        const el = e.target.closest('a, button, input, textarea');
+        if (el) {
+          ring.style.width  = '56px';
+          ring.style.height = '56px';
+          ring.style.opacity = '0.8';
+          main.style.transform = 'translate(-50%,-50%) scale(1.6)';
+        }
+      });
+      document.addEventListener('mouseout', e => {
+        const el = e.target.closest('a, button, input, textarea');
+        if (el) {
+          ring.style.width  = '36px';
+          ring.style.height = '36px';
+          ring.style.opacity = '1';
+          main.style.transform = 'translate(-50%,-50%) scale(1)';
+        }
+      });
+
+      function lerp(a, b, t) { return a + (b - a) * t; }
+
+      function animate() {
+        // Lead position follows mouse
+        positions[0].x = lerp(positions[0].x, mx, 0.35);
+        positions[0].y = lerp(positions[0].y, my, 0.35);
+
+        // Each subsequent position follows the one ahead
+        for (let i = 1; i < TRAIL_COUNT; i++) {
+          positions[i].x = lerp(positions[i].x, positions[i-1].x, 0.55 - i * 0.02);
+          positions[i].y = lerp(positions[i].y, positions[i-1].y, 0.55 - i * 0.02);
+        }
+
+        // Ring follows with slight lag
+        ring.style.left = positions[1].x + 'px';
+        ring.style.top  = positions[1].y + 'px';
+
+        // Trail dots
+        for (let i = 0; i < TRAIL_COUNT; i++) {
+          trail[i].el.style.left = positions[i].x + 'px';
+          trail[i].el.style.top  = positions[i].y + 'px';
+        }
+
+        raf = requestAnimationFrame(animate);
+      }
+      animate();
+
+      // Click ripple burst
+      document.addEventListener('click', e => {
+        for (let i = 0; i < 6; i++) {
+          const spark = document.createElement('div');
+          spark.style.cssText = `
+            position:fixed; pointer-events:none; border-radius:50%;
+            width:6px; height:6px; background:var(--accent);
+            left:${e.clientX}px; top:${e.clientY}px;
+            transform:translate(-50%,-50%); z-index:9999;
+            mix-blend-mode:screen;
+          `;
+          document.body.appendChild(spark);
+          const angle = (i / 6) * Math.PI * 2;
+          const dist  = 30 + Math.random() * 20;
+          const tx    = Math.cos(angle) * dist;
+          const ty    = Math.sin(angle) * dist;
+          spark.animate([
+            { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+            { transform: `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(0)`, opacity: 0 }
+          ], { duration: 480, easing: 'cubic-bezier(0,.9,.57,1)' }).onfinish = () => spark.remove();
+        }
+      });
+    })();
+  </script>
+
+  <script src="/static/dashboard.js"></script>
+</body>
+</html>

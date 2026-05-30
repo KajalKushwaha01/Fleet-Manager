@@ -1,0 +1,42 @@
+groups:
+  - name: node.health
+    rules:
+      - alert: NodeDown
+        expr: up{job="linux-nodes"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Node is down"
+          description: "{{ $labels.instance }} has been unreachable for more than 2 minutes."
+
+      - alert: NodeFlapping
+        expr: changes(up{job="linux-nodes"}[15m]) > 4
+        for: 5m
+        labels:
+          severity: warning
+          category: availability
+        annotations:
+          summary: "Node is flapping"
+          description: "{{ $labels.instance }} changed scrape state more than 4 times in 15 minutes."
+
+      - alert: UnexpectedReboot
+        expr: node_time_seconds{job="linux-nodes"} - node_boot_time_seconds{job="linux-nodes"} < 600
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Unexpected reboot detected"
+          description: "{{ $labels.instance }} uptime is below 10 minutes."
+
+      - alert: Watchdog
+        expr: vector(1)
+        for: 1m
+        labels:
+          severity: none
+          category: watchdog
+        annotations:
+          summary: "Watchdog heartbeat"
+          description: "This alert continuously verifies the alerting pipeline."

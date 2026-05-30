@@ -1,0 +1,42 @@
+groups:
+  - name: node.system
+    rules:
+      - alert: ClockDriftHigh
+        expr: abs(node_timex_offset_seconds{job="linux-nodes"}) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: errors
+        annotations:
+          summary: "Clock drift high"
+          description: "{{ $labels.instance }} clock offset is above 0.1 seconds."
+
+      - alert: FileDescriptorsCritical
+        expr: node_filefd_allocated{job="linux-nodes"} / node_filefd_maximum{job="linux-nodes"} > 0.90
+        for: 5m
+        labels:
+          severity: critical
+          category: saturation
+        annotations:
+          summary: "File descriptors critical"
+          description: "{{ $labels.instance }} file descriptor usage is above 90%."
+
+      - alert: ZombieProcesses
+        expr: node_processes_state{job="linux-nodes",state="Z"} > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: errors
+        annotations:
+          summary: "Zombie processes detected"
+          description: "{{ $labels.instance }} has more than 10 zombie processes."
+
+      - alert: HighContextSwitches
+        expr: rate(node_context_switches_total{job="linux-nodes"}[5m]) > 10000
+        for: 10m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "High context switch rate"
+          description: "{{ $labels.instance }} context switches exceed 10000/s for 10 minutes."

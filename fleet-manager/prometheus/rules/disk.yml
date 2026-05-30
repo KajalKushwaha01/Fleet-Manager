@@ -1,0 +1,62 @@
+groups:
+  - name: node.disk
+    rules:
+      - alert: DiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{job="linux-nodes",fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{job="linux-nodes",fstype!~"tmpfs|overlay|squashfs"}) < 0.10
+        for: 2m
+        labels:
+          severity: critical
+          category: saturation
+        annotations:
+          summary: "Disk space critical"
+          description: "{{ $labels.instance }} {{ $labels.mountpoint }} has less than 10% free space."
+
+      - alert: DiskSpaceWarning
+        expr: (node_filesystem_avail_bytes{job="linux-nodes",fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{job="linux-nodes",fstype!~"tmpfs|overlay|squashfs"}) < 0.20
+        for: 10m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "Disk space low"
+          description: "{{ $labels.instance }} {{ $labels.mountpoint }} has less than 20% free space."
+
+      - alert: DiskFillingSoon
+        expr: predict_linear(node_filesystem_avail_bytes{job="linux-nodes",fstype!~"tmpfs|overlay|squashfs"}[4h], 4 * 3600) < 0
+        for: 10m
+        labels:
+          severity: critical
+          category: saturation
+        annotations:
+          summary: "Disk will fill soon"
+          description: "{{ $labels.instance }} {{ $labels.mountpoint }} is predicted to fill within 4 hours."
+
+      - alert: DiskFillingIn24h
+        expr: predict_linear(node_filesystem_avail_bytes{job="linux-nodes",fstype!~"tmpfs|overlay|squashfs"}[6h], 24 * 3600) < 0
+        for: 30m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "Disk may fill within 24 hours"
+          description: "{{ $labels.instance }} {{ $labels.mountpoint }} is predicted to fill within 24 hours."
+
+      - alert: InodesCritical
+        expr: (node_filesystem_files_free{job="linux-nodes",fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_files{job="linux-nodes",fstype!~"tmpfs|overlay|squashfs"}) < 0.10
+        for: 5m
+        labels:
+          severity: critical
+          category: saturation
+        annotations:
+          summary: "Filesystem inodes critical"
+          description: "{{ $labels.instance }} {{ $labels.mountpoint }} has less than 10% free inodes."
+
+      - alert: DiskIOSaturation
+        expr: rate(node_disk_io_time_seconds_total{job="linux-nodes"}[5m]) > 0.90
+        for: 10m
+        labels:
+          severity: warning
+          category: saturation
+        annotations:
+          summary: "Disk I/O saturation high"
+          description: "{{ $labels.instance }} disk {{ $labels.device }} is above 90% I/O busy time."

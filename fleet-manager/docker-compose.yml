@@ -1,0 +1,211 @@
+services:
+  fleet-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fleet-manager
+    env_file:
+      - .env
+    environment:
+      DATABASE_PATH: "/data/nodes.db"
+      PROMETHEUS_URL: "http://prometheus:9090"
+      ALERTMANAGER_URL: "http://alertmanager:9093"
+      PUBLIC_PROMETHEUS_URL: "http://localhost:9090"
+      PUBLIC_GRAFANA_URL: "http://localhost:3000"
+      PUBLIC_ALERTMANAGER_URL: "http://localhost:9093"
+      LOG_LEVEL: "INFO"
+    ports:
+      - "8080:8080"
+    volumes:
+      - fleet_manager_data:/data
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - fleet
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: "256M"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_DAYS}d"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - fleet
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: "1G"
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    env_file:
+      - .env
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9093/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - fleet
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: "256M"
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: grafana
+    env_file:
+      - .env
+    environment:
+      GF_SECURITY_ADMIN_USER: "admin"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD}"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - fleet
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: "512M"
+
+  node1:
+    image: prom/node-exporter:v1.8.2
+    container_name: node1
+    command:
+      - "--collector.systemd"
+      - "--collector.processes"
+      - "--collector.tcpstat"
+      - "--collector.netstat"
+    ports:
+      - "9101:9100"
+    healthcheck:
+      test: ["CMD", "node_exporter", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - fleet
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "128M"
+
+  node2:
+    image: prom/node-exporter:v1.8.2
+    container_name: node2
+    command:
+      - "--collector.systemd"
+      - "--collector.processes"
+      - "--collector.tcpstat"
+      - "--collector.netstat"
+    ports:
+      - "9102:9100"
+    healthcheck:
+      test: ["CMD", "node_exporter", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - fleet
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "128M"
+
+  node3:
+    image: prom/node-exporter:v1.8.2
+    container_name: node3
+    command:
+      - "--collector.systemd"
+      - "--collector.processes"
+      - "--collector.tcpstat"
+      - "--collector.netstat"
+    ports:
+      - "9103:9100"
+    healthcheck:
+      test: ["CMD", "node_exporter", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - fleet
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: "128M"
+
+networks:
+  fleet:
+    driver: bridge
+
+volumes:
+  alertmanager_data:
+  fleet_manager_data:
+  grafana_data:
+  prometheus_data:
